@@ -1,8 +1,8 @@
 import re
 import streamlit as st
 
+
 class MathLexer:
-    # Règles lexicales : liste de tuples (nom du token, expression régulière)
     rules = [
         ("NUMBER", r"\d+"),                 # Constante entière
         ("OP_ADD", r"\+"),                  # Opérateur d'addition
@@ -104,20 +104,47 @@ class MathParser:
         return token
 
 
+class SemanticAnalyzer:
+    @staticmethod
+    def analyze(tokens):
+        # Vérifier que les parenthèses sont équilibrées
+        balance = 0
+        for token_type, value in tokens:
+            if token_type == "LPAREN":
+                balance += 1
+            elif token_type == "RPAREN":
+                balance -= 1
+            if balance < 0:
+                raise ValueError("Analyse sémantique : parenthèses non équilibrées.")
+        if balance != 0:
+            raise ValueError("Analyse sémantique : parenthèses non équilibrées.")
+
+        # Vérification des divisions par zéro
+        for i, (token_type, value) in enumerate(tokens):
+            if token_type == "OP_DIV":
+                if i + 1 < len(tokens) and tokens[i + 1][0] == "NUMBER" and int(tokens[i + 1][1]) == 0:
+                    raise ValueError("Analyse sémantique : division par zéro détectée.")
+        return "Aucune erreur sémantique détectée."
+
+
 # Interface Streamlit
 st.title("Analyseur Mathématique")
 st.markdown("*Entrez une expression mathématique pour l'analyser et l'évaluer.*")
 
-# Saisie utilisateur
 input_expression = st.text_input("Expression mathématique", value="5 + (6*2)")
 
 if st.button("Analyser"):
     try:
-        # Analyse lexicale
         lexer = MathLexer()
         tokens = lexer.tokenize(input_expression)
         st.subheader("Analyse Lexicale")
         st.write("Tokens extraits :", tokens)
+
+        # Analyse sémantique
+        analyzer = SemanticAnalyzer()
+        semantic_result = analyzer.analyze(tokens)
+        st.subheader("Analyse Sémantique")
+        st.success(semantic_result)
 
         # Analyse syntaxique et évaluation
         parser = MathParser(tokens)
@@ -126,4 +153,4 @@ if st.button("Analyser"):
         st.success(f"Résultat : {result}")
 
     except ValueError as e:
-        st.error(f"Erreur lors de l'analyse : {e}")
+        st.error(f"Erreur : {e}")
