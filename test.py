@@ -115,9 +115,9 @@ class SemanticAnalyzer:
             elif token_type == "RPAREN":
                 balance -= 1
             if balance < 0:
-                raise ValueError("Analyse sémantique : parenthèses non équilibrées.")
+                raise ValueError("Analyse syntaxique : parenthèses non équilibrées.")
         if balance != 0:
-            raise ValueError("Analyse sémantique : parenthèses non équilibrées.")
+            raise ValueError("Analyse syntaxique : parenthèses non équilibrées.")
 
         # Vérification des divisions par zéro
         for i, (token_type, value) in enumerate(tokens):
@@ -143,7 +143,7 @@ if st.button("Analyser"):
         # Analyse sémantique
         analyzer = SemanticAnalyzer()
         semantic_result = analyzer.analyze(tokens)
-        st.subheader("Analyse Sémantique")
+        st.subheader("Analyse syntaxique")
         st.success(semantic_result)
 
         # Analyse syntaxique et évaluation
