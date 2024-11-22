@@ -32,7 +32,8 @@ class MathLexer:
                     position += len(value)
                     break
             if not match:
-                raise ValueError(f"Erreur lexicale : caractère inattendu '{text[position]}'")
+                # Handle unexpected characters gracefully
+                raise ValueError(f"Erreur lexicale : caractère inattendu '{text[position]}' à la position {position}.")
         return self.tokens
 
 
@@ -119,7 +120,7 @@ def main():
         """
         <div style="text-align:center;">
             <h1>Analyseur Mathématique</h1>
-            <p style="font-size:16px; color:gray;">Made by Houssam Karroum & Yassine Hachguer</p>
+            <p style="font-size:16px; color:gray;">Made by Houssam Karroum & Yassine Hachguare</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -127,18 +128,18 @@ def main():
     input_expression = st.text_input("Entrez une expression mathématique :", "5 + (6 * 2) - (3 - 8)")
 
     if input_expression:
-        # --- Analyse lexicale ---
-        lexer = MathLexer()
-        tokens = lexer.tokenize(input_expression)
-
-        # --- Affichage des Tokens ---
-        tokens_df = pd.DataFrame(tokens, columns=["Type", "Valeur"])
-        st.subheader("Tokens Extraits")
-        st.table(tokens_df)
-
-        # --- Analyse syntaxique ---
-        parser = MathParser(tokens)
         try:
+            # --- Analyse lexicale ---
+            lexer = MathLexer()
+            tokens = lexer.tokenize(input_expression)
+
+            # --- Affichage des Tokens ---
+            tokens_df = pd.DataFrame(tokens, columns=["Type", "Valeur"])
+            st.subheader("Tokens Extraits")
+            st.table(tokens_df)
+
+            # --- Analyse syntaxique ---
+            parser = MathParser(tokens)
             result = parser.parse()
 
             # --- Analyse sémantique ---
@@ -151,7 +152,11 @@ def main():
             st.markdown(f"**Résultat Final** : `{final_result}`")
         
         except ValueError as e:
+            # Catch and display any errors encountered during analysis
             st.error(f"Erreur : {e}")
+        except Exception as e:
+            st.error(f"Erreur imprévue : {e}")
+
 
 # Exécution de l'application Streamlit
 if __name__ == "__main__":
