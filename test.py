@@ -1,7 +1,8 @@
 import re
 import streamlit as st
+import pandas as pd
 
-
+# === Analyseur lexical ===
 class MathLexer:
     rules = [
         ("NUMBER", r"\d+"),                 # Constante entière
@@ -35,122 +36,123 @@ class MathLexer:
         return self.tokens
 
 
+# === Analyseur syntaxique ===
 class MathParser:
     def __init__(self, tokens):
         self.tokens = tokens
-        self.current_token_index = 0
+        self.current_index = 0
+
+    def current_token(self):
+        if self.current_index < len(self.tokens):
+            return self.tokens[self.current_index]
+        return None
+
+    def advance(self):
+        self.current_index += 1
+
+    def match(self, token_type):
+        token = self.current_token()
+        if token and token[0] == token_type:
+            self.advance()
+            return token
+        return None
 
     def parse(self):
-        """Parse l'expression mathématique."""
-        if not self.tokens:
-            raise ValueError("Aucune expression à analyser.")
-        result = self._expression()
-        if self.current_token_index < len(self.tokens):
-            raise ValueError("Erreur syntaxique : jetons restants après l'analyse.")
+        result = self.parse_expression()
+        if self.current_token():
+            raise ValueError("Erreur syntaxique : tokens restants après l'analyse.")
         return result
 
-    def _expression(self):
-        """Parse une expression : term ((+|-) term)*"""
-        result = self._term()
-        while self._current_token() and self._current_token()[0] in {"OP_ADD", "OP_SUB"}:
-            operator = self._consume()[1]
-            right = self._term()
-            if operator == "+":
+    def parse_expression(self):
+        result = self.parse_term()
+        while self.current_token() and self.current_token()[0] in {"OP_ADD", "OP_SUB"}:
+            operator = self.match("OP_ADD") or self.match("OP_SUB")
+            right = self.parse_term()
+            if operator[0] == "OP_ADD":
                 result += right
-            elif operator == "-":
+            elif operator[0] == "OP_SUB":
                 result -= right
         return result
 
-    def _term(self):
-        """Parse un terme : factor ((|/) factor)"""
-        result = self._factor()
-        while self._current_token() and self._current_token()[0] in {"OP_MUL", "OP_DIV"}:
-            operator = self._consume()[1]
-            right = self._factor()
-            if operator == "*":
+    def parse_term(self):
+        result = self.parse_factor()
+        while self.current_token() and self.current_token()[0] in {"OP_MUL", "OP_DIV"}:
+            operator = self.match("OP_MUL") or self.match("OP_DIV")
+            right = self.parse_factor()
+            if operator[0] == "OP_MUL":
                 result *= right
-            elif operator == "/":
+            elif operator[0] == "OP_DIV":
                 if right == 0:
-                    raise ValueError("Division par zéro.")
+                    raise ValueError("Erreur sémantique : division par zéro.")
                 result /= right
         return result
 
-    def _factor(self):
-        """Parse un facteur : NUMBER | (expression)"""
-        token = self._current_token()
-        if token[0] == "NUMBER":
-            return int(self._consume()[1])
-        elif token[0] == "LPAREN":
-            self._consume()  # Consommer '('
-            result = self._expression()
-            if self._current_token()[0] != "RPAREN":
-                raise ValueError("Parenthèse fermante manquante.")
-            self._consume()  # Consommer ')'
+    def parse_factor(self):
+        if self.match("LPAREN"):
+            result = self.parse_expression()
+            if not self.match("RPAREN"):
+                raise ValueError("Erreur syntaxique : parenthèse fermante manquante.")
             return result
-        else:
-            raise ValueError(f"Erreur syntaxique : attendu un nombre ou une parenthèse, trouvé {token}.")
-
-    def _current_token(self):
-        """Retourne le jeton courant."""
-        if self.current_token_index < len(self.tokens):
-            return self.tokens[self.current_token_index]
-        return None
-
-    def _consume(self):
-        """Consomme et retourne le jeton courant."""
-        token = self._current_token()
+        token = self.match("NUMBER")
         if token:
-            self.current_token_index += 1
-        return token
+            return int(token[1])
+        raise ValueError("Erreur syntaxique : facteur attendu.")
 
 
-class SemanticAnalyzer:
-    @staticmethod
-    def analyze(tokens):
-        # Vérifier que les parenthèses sont équilibrées
-        balance = 0
-        for token_type, value in tokens:
-            if token_type == "LPAREN":
-                balance += 1
-            elif token_type == "RPAREN":
-                balance -= 1
-            if balance < 0:
-                raise ValueError("Analyse syntaxique : parenthèses non équilibrées.")
-        if balance != 0:
-            raise ValueError("Analyse syntaxique : parenthèses non équilibrées.")
+# === Analyseur sémantique ===
+class MathSemanticAnalyzer:
+    def __init__(self, result):
+        self.result = result
 
-        # Vérification des divisions par zéro
-        for i, (token_type, value) in enumerate(tokens):
-            if token_type == "OP_DIV":
-                if i + 1 < len(tokens) and tokens[i + 1][0] == "NUMBER" and int(tokens[i + 1][1]) == 0:
-                    raise ValueError("Analyse sémantique : division par zéro détectée.")
-        return "Aucune erreur sémantique détectée."
+    def analyze(self):
+        if self.result > 1e6:
+            raise ValueError("Erreur sémantique : le résultat dépasse la limite autorisée.")
+        return self.result
 
 
-# Interface Streamlit
-st.title("Analyseur Mathématique")
-st.markdown("*Entrez une expression mathématique pour l'analyser et l'évaluer.*")
+# === Application Streamlit ===
+def main():
+    st.set_page_config(page_title="Analyseur Mathématique", page_icon="📊", layout="wide")
+    
+    # Add the header with 'Made by' text
+    st.markdown(
+        """
+        <div style="text-align:center;">
+            <h1>Analyseur Mathématique</h1>
+            <p style="font-size:16px; color:gray;">Made by Houssam Karroum & Yassine Hachguer</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-input_expression = st.text_input("Expression mathématique", value="5 + (6*2)")
+    # Entrée utilisateur pour l'expression mathématique
+    input_expression = st.text_input("Entrez une expression mathématique :", "5 + (6 * 2) - (3 - 8)")
 
-if st.button("Analyser"):
-    try:
+    if input_expression:
+        # --- Analyse lexicale ---
         lexer = MathLexer()
         tokens = lexer.tokenize(input_expression)
-        st.subheader("Analyse Lexicale")
-        st.write("Tokens extraits :", tokens)
 
-        # Analyse sémantique
-        analyzer = SemanticAnalyzer()
-        semantic_result = analyzer.analyze(tokens)
-        st.subheader("Analyse syntaxique")
-        st.success(semantic_result)
+        # --- Affichage des Tokens ---
+        tokens_df = pd.DataFrame(tokens, columns=["Type", "Valeur"])
+        st.subheader("Tokens Extraits")
+        st.table(tokens_df)
 
-        # Analyse syntaxique et évaluation
+        # --- Analyse syntaxique ---
         parser = MathParser(tokens)
-        result = parser.parse()
-        st.subheader("Résultat de l'évaluation")
-        st.success(f"Résultat : {result}")
+        try:
+            result = parser.parse()
 
-    except ValueError as e:
-        st.error(f"Erreur : {e}")
+            # --- Analyse sémantique ---
+            semantic_analyzer = MathSemanticAnalyzer(result)
+            final_result = semantic_analyzer.analyze()
+
+            # --- Affichage des résultats ---
+            st.subheader("Résultats de l'Analyse")
+            st.markdown(f"**Expression Saisie** : `{input_expression}`")
+            st.markdown(f"**Résultat Final** : `{final_result}`")
+        
+        except ValueError as e:
+            st.error(f"Erreur : {e}")
+
+# Exécution de l'application Streamlit
+if __name__ == "__main__":
+    main()
